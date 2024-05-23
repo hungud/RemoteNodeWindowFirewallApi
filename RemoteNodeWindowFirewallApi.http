@@ -1,0 +1,12 @@
+@RemoteNodeWindowFirewallApi_HostAddress = http://localhost:5234
+
+GET {{RemoteNodeWindowFirewallApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+### Check if a rule exists
+GET {{RemoteNodeWindowFirewallApi_HostAddress}}/WindowFirewall/ruleName/exists
+Accept: application/json
+
+### Get IPs of a rule
+GET {{RemoteNodeWindowFirewallApi_HostAddress}}/WindowFirewall/ruleName
+Accept: application/json
