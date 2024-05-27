@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
+using System.Web;
 
 namespace RemoteNodeWindowFirewallApi.Controllers
 {
-    [Authorize]
+    [AllowAnonymous]
     [ApiController]
     [Route("[controller]")]
     public class WindowFirewallController : ControllerBase
@@ -79,12 +80,23 @@ namespace RemoteNodeWindowFirewallApi.Controllers
         [HttpPost("remoteips/{ruleName}/add")]
         public IActionResult AddIP(string ruleName, string ipAddress)
         {
+            // Get existing IPs
+            var newIPs = $"{ipAddress}";
+            var remoteIPsActionResult = GetRemoteIPs(ruleName);
+            var remoteIPsOkObjectResult = remoteIPsActionResult.Result as OkObjectResult;
+            var remoteIPs = remoteIPsOkObjectResult.Value as IEnumerable<string>;
+            if (remoteIPs?.Count() > 0)
+            {
+                var existingIPs = string.Join(",", remoteIPs);
+                newIPs = $"{existingIPs},{ipAddress}";
+            }
+
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "netsh",
-                    Arguments = $"advfirewall firewall set rule name={ruleName} new remoteip={ipAddress}",
+                    Arguments = $"advfirewall firewall set rule name={ruleName} new remoteip={newIPs}",
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
@@ -113,15 +125,18 @@ namespace RemoteNodeWindowFirewallApi.Controllers
         public IActionResult RemoveIP(string ruleName, string ipAddress)
         {
             // Get existing IPs
-            var existingIPs = GetRemoteIPs(ruleName);
-            if (!(existingIPs?.Value?.Any() == true))
+            var remoteIPsActionResult = GetRemoteIPs(ruleName);
+            var remoteIPsOkObjectResult = remoteIPsActionResult.Result as OkObjectResult;
+            var remoteIPs = remoteIPsOkObjectResult.Value as IEnumerable<string>;
+            if (!(remoteIPs?.Any() == true))
             {
                 return NotFound("No existing IPs found for the rule");
             }
 
             // Remove the specified IP
-            var updatedIPs = existingIPs.Value.Where(ip => ip != ipAddress).ToList();
-            if (updatedIPs.Count == existingIPs.Value.Count())
+            ipAddress = HttpUtility.UrlDecode(ipAddress);
+            var updatedIPs = remoteIPs.Where(ip => ip != ipAddress).ToList();
+            if (updatedIPs.Count == remoteIPs.Count())
             {
                 return NotFound("IP not found in the rule");
             }
